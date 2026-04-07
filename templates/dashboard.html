@@ -3,7 +3,6 @@
 {% block content %}
 <div class="min-h-screen flex flex-col">
 
-  <!-- Header -->
   <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -21,28 +20,26 @@
 
   <main class="max-w-6xl mx-auto w-full px-6 py-8 flex-1">
 
-    <!-- Flash messages -->
     {% if success %}
     <div id="flash-ok" class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg px-4 py-3 text-sm mb-6 flex items-center justify-between">
       <span>{{ success }}</span>
-      <button onclick="document.getElementById('flash-ok').remove()" class="text-emerald-400/60 hover:text-emerald-400 ml-4">✕</button>
+      <button onclick="document.getElementById('flash-ok').remove()" class="ml-4 opacity-60 hover:opacity-100">✕</button>
     </div>
     {% endif %}
     {% if error %}
     <div id="flash-err" class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm mb-6 flex items-center justify-between">
       <span>{{ error }}</span>
-      <button onclick="document.getElementById('flash-err').remove()" class="text-red-400/60 hover:text-red-400 ml-4">✕</button>
+      <button onclick="document.getElementById('flash-err').remove()" class="ml-4 opacity-60 hover:opacity-100">✕</button>
     </div>
     {% endif %}
 
-    <!-- Tabs -->
-    <div class="flex gap-1 mb-8 border-b border-slate-800" id="tabs">
+    <div class="flex gap-1 mb-8 border-b border-slate-800">
       <button onclick="showTab('providers')" id="tab-providers"
-        class="tab-btn px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 border-indigo-500 text-white -mb-px">
+        class="px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 border-indigo-500 text-white -mb-px">
         Providers
       </button>
       <button onclick="showTab('settings')" id="tab-settings"
-        class="tab-btn px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 border-transparent text-slate-400 hover:text-white -mb-px">
+        class="px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 border-transparent text-slate-400 hover:text-white -mb-px">
         Settings
       </button>
     </div>
@@ -52,7 +49,7 @@
       <div class="flex items-center justify-between mb-6">
         <div>
           <h2 class="text-lg font-semibold">LLM Providers</h2>
-          <p class="text-slate-400 text-sm mt-0.5">Add OpenAI-compatible API endpoints. Requests are routed by model name.</p>
+          <p class="text-slate-400 text-sm mt-0.5">Models are auto-detected on add and refreshed hourly.</p>
         </div>
         <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2">
           <span class="text-lg leading-none">+</span> Add Provider
@@ -68,11 +65,16 @@
               <span class="w-2 h-2 rounded-full flex-shrink-0 {% if p.enabled %}bg-emerald-400{% else %}bg-slate-600{% endif %}"></span>
               <h3 class="font-semibold text-white truncate">{{ p.name }}</h3>
             </div>
-            <form method="post" action="/dashboard/providers/{{ p.id }}/toggle">
-              <button type="submit" class="text-xs px-2 py-1 rounded {% if p.enabled %}bg-slate-800 text-slate-300 hover:bg-slate-700{% else %}bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30{% endif %} transition flex-shrink-0">
-                {% if p.enabled %}Disable{% else %}Enable{% endif %}
-              </button>
-            </form>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              {% if p.models_auto %}
+              <span title="Models refreshed hourly from API" class="text-xs bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 px-1.5 py-0.5 rounded-full">auto</span>
+              {% endif %}
+              <form method="post" action="/dashboard/providers/{{ p.id }}/toggle">
+                <button type="submit" class="text-xs px-2 py-1 rounded {% if p.enabled %}bg-slate-800 text-slate-300 hover:bg-slate-700{% else %}bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30{% endif %} transition">
+                  {% if p.enabled %}Disable{% else %}Enable{% endif %}
+                </button>
+              </form>
+            </div>
           </div>
           <div class="text-xs text-slate-400 truncate font-mono">{{ p.base_url }}</div>
           {% if p.models %}
@@ -81,21 +83,17 @@
             <span class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">{{ m }}</span>
             {% endfor %}
             {% if p.models|length > 5 %}
-            <span class="text-xs text-slate-500">+{{ p.models|length - 5 }} more</span>
+            <span class="text-xs text-slate-500 self-center">+{{ p.models|length - 5 }} more</span>
             {% endif %}
           </div>
           {% else %}
-          <p class="text-xs text-slate-500 italic">No static models — will fetch from provider</p>
+          <p class="text-xs text-slate-500 italic">No models detected yet — will retry on next refresh</p>
           {% endif %}
           <div class="flex gap-2 mt-auto pt-1">
-            <button onclick="openEditModal('{{ p.id }}','{{ p.name|e }}','{{ p.base_url|e }}','{{ p.api_key|e }}',{{ p.models | tojson }})"
-              class="flex-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition">
-              Edit
-            </button>
+            <button onclick="openEditModal('{{ p.id }}','{{ p.name|e }}','{{ p.base_url|e }}','{{ p.api_key|e }}',{{ p.models | tojson }},{{ p.models_auto | tojson }})"
+              class="flex-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition">Edit</button>
             <form method="post" action="/dashboard/providers/{{ p.id }}/delete" onsubmit="return confirm('Delete provider {{ p.name }}?')">
-              <button type="submit" class="text-sm bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg transition">
-                Delete
-              </button>
+              <button type="submit" class="text-sm bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg transition">Delete</button>
             </form>
           </div>
         </div>
@@ -104,24 +102,15 @@
       {% else %}
       <div class="border-2 border-dashed border-slate-800 rounded-xl py-16 text-center">
         <p class="text-slate-500 text-lg mb-2">No providers yet</p>
-        <p class="text-slate-600 text-sm mb-6">Add an OpenAI-compatible API to get started.</p>
-        <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
-          + Add First Provider
-        </button>
+        <p class="text-slate-600 text-sm mb-6">Use a preset or enter a custom OpenAI-compatible endpoint.</p>
+        <button onclick="openAddModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">+ Add First Provider</button>
       </div>
       {% endif %}
 
-      <!-- Routing hint -->
       {% if providers %}
       <div class="mt-8 bg-slate-900/50 border border-slate-800 rounded-xl p-5">
         <h3 class="text-sm font-semibold text-slate-300 mb-2">Model Routing</h3>
-        <p class="text-slate-400 text-sm">Use <code class="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded">provider_name/model_name</code> for explicit routing, or just <code class="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded">model_name</code> to auto-route to the first matching provider.</p>
-        <div class="mt-3 font-mono text-xs text-slate-400 bg-slate-950 border border-slate-800 rounded-lg p-3">
-          <div>// Models available via your Ruci endpoint:</div>
-          {% for p in providers %}{% if p.enabled %}{% for m in p.models[:2] %}
-          <div class="text-emerald-400">{{ p.name }}/{{ m }}</div>
-          {% endfor %}{% endif %}{% endfor %}
-        </div>
+        <p class="text-slate-400 text-sm">Use <code class="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded">provider_name/model_name</code> for explicit routing, or just <code class="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded">model_name</code> to auto-route.</p>
       </div>
       {% endif %}
     </div>
@@ -130,7 +119,6 @@
     <div id="pane-settings" class="hidden">
       <div class="grid gap-6 max-w-2xl">
 
-        <!-- API Endpoint info -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h3 class="font-semibold mb-4">API Endpoint</h3>
           <div class="space-y-3 text-sm">
@@ -150,19 +138,16 @@
           <p class="text-slate-500 text-xs mt-4">To change host/port, edit <code class="bg-slate-800 px-1 rounded">.env</code> and restart.</p>
         </div>
 
-        <!-- Proxy API Key -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h3 class="font-semibold mb-1">Proxy API Key</h3>
-          <p class="text-slate-400 text-sm mb-4">If set, clients must provide this key as <code class="bg-slate-800 px-1 rounded text-xs">Authorization: Bearer &lt;key&gt;</code> to use the API. Leave blank for open access.</p>
+          <p class="text-slate-400 text-sm mb-4">If set, clients must send <code class="bg-slate-800 px-1 rounded text-xs">Authorization: Bearer &lt;key&gt;</code>. Leave blank for open access.</p>
           <form method="post" action="/dashboard/api-key" class="flex gap-3">
-            <input type="text" name="proxy_api_key" value="{{ proxy_api_key }}"
-              placeholder="Leave blank for open access"
+            <input type="text" name="proxy_api_key" value="{{ proxy_api_key }}" placeholder="Leave blank for open access"
               class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
             <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">Save</button>
           </form>
         </div>
 
-        <!-- Change Password -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h3 class="font-semibold mb-4">Change Dashboard Password</h3>
           <form method="post" action="/dashboard/password" class="space-y-3">
@@ -181,10 +166,30 @@
               <input type="password" name="confirm_password" required minlength="6"
                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
             </div>
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-lg transition text-sm mt-2">
-              Update Password
-            </button>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-lg transition text-sm mt-2">Update Password</button>
           </form>
+        </div>
+
+        <!-- Update Ruci -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 class="font-semibold mb-1">Update Ruci</h3>
+              <p class="text-slate-400 text-sm">Pull the latest version from GitHub and reinstall dependencies. A restart is required to apply changes.</p>
+            </div>
+            <button id="update-btn" onclick="doUpdate()"
+              class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">
+              Check &amp; Update
+            </button>
+          </div>
+          <div id="update-output" class="hidden mt-2 font-mono text-xs bg-slate-950 border border-slate-800 rounded-lg p-4 whitespace-pre-wrap text-slate-300 max-h-56 overflow-y-auto"></div>
+          <div id="restart-section" class="hidden mt-4 flex items-center gap-3">
+            <p class="text-amber-400 text-sm flex-1">Update applied. Restart to load new code.</p>
+            <button id="restart-btn" onclick="doRestart()"
+              class="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg transition text-sm whitespace-nowrap">
+              Restart Now
+            </button>
+          </div>
         </div>
 
       </div>
@@ -195,13 +200,37 @@
 
 <!-- Add/Edit Provider Modal -->
 <div id="provider-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
       <h2 id="modal-title" class="text-lg font-semibold">Add Provider</h2>
       <button onclick="closeModal()" class="text-slate-400 hover:text-white transition text-xl leading-none">✕</button>
     </div>
     <form id="provider-form" method="post" class="p-6 space-y-4">
       <input type="hidden" name="id" id="modal-id" />
+
+      <!-- Presets -->
+      <div>
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Quick Presets</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="applyPreset('Z.AI','https://api.z.ai/api/coding/paas/v4')"
+            class="text-xs bg-slate-800 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition">
+            Z.AI Coding Plan
+          </button>
+          <button type="button" onclick="applyPreset('MiMo','https://token-plan-sgp.xiaomimimo.com/v1')"
+            class="text-xs bg-slate-800 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition">
+            Xiaomi MiMo
+          </button>
+          <button type="button" onclick="applyPreset('StepFun','https://api.stepfun.ai/step_plan/v1')"
+            class="text-xs bg-slate-800 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition">
+            StepFun Step Plan
+          </button>
+          <button type="button" onclick="applyPreset('OpenAI','https://api.openai.com/v1')"
+            class="text-xs bg-slate-800 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition">
+            OpenAI
+          </button>
+        </div>
+      </div>
+
       <div>
         <label class="block text-sm font-medium text-slate-300 mb-1.5">Name <span class="text-slate-500 font-normal">(used for routing: <code>name/model</code>)</span></label>
         <input type="text" name="name" id="modal-name" required placeholder="e.g. OpenAI"
@@ -219,24 +248,25 @@
       </div>
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-sm font-medium text-slate-300">Models <span class="text-slate-500 font-normal">(one per line, or leave blank to fetch on demand)</span></label>
+          <label class="text-sm font-medium text-slate-300">Models <span class="text-slate-500 font-normal">(leave blank to auto-detect)</span></label>
           <button type="button" id="fetch-btn" onclick="fetchModels()"
-            class="text-xs text-indigo-400 hover:text-indigo-300 transition font-medium">
-            Fetch from API →
-          </button>
+            class="text-xs text-indigo-400 hover:text-indigo-300 transition font-medium">Fetch from API →</button>
         </div>
-        <textarea name="models_raw" id="modal-models" rows="4" placeholder="gpt-4o&#10;gpt-4o-mini&#10;gpt-3.5-turbo"
+        <textarea name="models_raw" id="modal-models" rows="4" placeholder="Leave blank to auto-detect on save, or enter one model per line"
           class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"></textarea>
         <p id="fetch-status" class="text-xs text-slate-500 mt-1 hidden"></p>
       </div>
-      <div class="flex gap-3 pt-2">
+      <div class="flex items-center gap-3 py-1">
+        <input type="checkbox" name="models_auto" id="modal-auto" value="on" checked
+          class="w-4 h-4 accent-indigo-500 rounded" />
+        <label for="modal-auto" class="text-sm text-slate-300 cursor-pointer">
+          Auto-refresh models hourly from provider API
+        </label>
+      </div>
+      <div class="flex gap-3 pt-1">
         <button type="button" onclick="closeModal()"
-          class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-lg transition text-sm">
-          Cancel
-        </button>
-        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition text-sm">
-          Save Provider
-        </button>
+          class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-lg transition text-sm">Cancel</button>
+        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition text-sm">Save Provider</button>
       </div>
     </form>
   </div>
@@ -249,8 +279,10 @@
   function showTab(tab) {
     document.getElementById('pane-providers').classList.toggle('hidden', tab !== 'providers');
     document.getElementById('pane-settings').classList.toggle('hidden', tab !== 'settings');
-    document.getElementById('tab-providers').className = `tab-btn px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 -mb-px ${tab === 'providers' ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
-    document.getElementById('tab-settings').className = `tab-btn px-5 py-2.5 text-sm font-medium rounded-t-lg transition border-b-2 -mb-px ${tab === 'settings' ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
+    const active = 'border-b-2 border-indigo-500 text-white -mb-px px-5 py-2.5 text-sm font-medium rounded-t-lg transition';
+    const inactive = 'border-b-2 border-transparent text-slate-400 hover:text-white -mb-px px-5 py-2.5 text-sm font-medium rounded-t-lg transition';
+    document.getElementById('tab-providers').className = tab === 'providers' ? active : inactive;
+    document.getElementById('tab-settings').className = tab === 'settings' ? active : inactive;
   }
 
   function openAddModal() {
@@ -261,11 +293,13 @@
     document.getElementById('modal-base-url').value = '';
     document.getElementById('modal-api-key').value = '';
     document.getElementById('modal-models').value = '';
+    document.getElementById('modal-auto').checked = true;
+    document.getElementById('fetch-status').classList.add('hidden');
     document.getElementById('provider-modal').classList.remove('hidden');
     document.getElementById('modal-name').focus();
   }
 
-  function openEditModal(id, name, baseUrl, apiKey, models) {
+  function openEditModal(id, name, baseUrl, apiKey, models, modelsAuto) {
     document.getElementById('modal-title').textContent = 'Edit Provider';
     document.getElementById('provider-form').action = `/dashboard/providers/${id}/update`;
     document.getElementById('modal-id').value = id;
@@ -273,6 +307,8 @@
     document.getElementById('modal-base-url').value = baseUrl;
     document.getElementById('modal-api-key').value = apiKey;
     document.getElementById('modal-models').value = models.join('\n');
+    document.getElementById('modal-auto').checked = modelsAuto;
+    document.getElementById('fetch-status').classList.add('hidden');
     document.getElementById('provider-modal').classList.remove('hidden');
   }
 
@@ -280,10 +316,15 @@
     document.getElementById('provider-modal').classList.add('hidden');
   }
 
+  function applyPreset(name, baseUrl) {
+    document.getElementById('modal-name').value = name;
+    document.getElementById('modal-base-url').value = baseUrl;
+    document.getElementById('modal-api-key').focus();
+  }
+
   document.getElementById('provider-modal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
-
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeModal();
   });
@@ -296,13 +337,12 @@
     const status = document.getElementById('fetch-status');
     btn.textContent = 'Fetching…';
     btn.disabled = true;
-    status.textContent = '';
     status.classList.add('hidden');
     try {
       const resp = await fetch('/dashboard/fetch-models', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({base_url: baseUrl, api_key: apiKey}),
       });
       const data = await resp.json();
       if (data.models && data.models.length > 0) {
@@ -311,12 +351,12 @@
         status.className = 'text-xs text-emerald-400 mt-1';
         status.classList.remove('hidden');
       } else {
-        status.textContent = data.error || 'No models returned.';
-        status.className = 'text-xs text-red-400 mt-1';
+        status.textContent = data.error || 'No models returned from this endpoint.';
+        status.className = 'text-xs text-amber-400 mt-1';
         status.classList.remove('hidden');
       }
     } catch (err) {
-      status.textContent = 'Request failed. Check URL and API key.';
+      status.textContent = 'Request failed — check URL and API key.';
       status.className = 'text-xs text-red-400 mt-1';
       status.classList.remove('hidden');
     } finally {
@@ -325,7 +365,52 @@
     }
   }
 
-  // Check URL hash for settings tab
+  async function doUpdate() {
+    const btn = document.getElementById('update-btn');
+    const output = document.getElementById('update-output');
+    const restartSection = document.getElementById('restart-section');
+    btn.textContent = 'Updating…';
+    btn.disabled = true;
+    output.classList.remove('hidden');
+    output.textContent = 'Running git pull…\n';
+    restartSection.classList.add('hidden');
+    try {
+      const resp = await fetch('/dashboard/update', {method: 'POST'});
+      const data = await resp.json();
+      let text = '';
+      if (data.git) {
+        text += '=== git pull ===\n' + (data.git.stdout || '') + (data.git.stderr ? '\n' + data.git.stderr : '') + '\n\n';
+      }
+      if (data.pip) {
+        text += '=== pip install ===\n' + (data.pip.stdout || '') + (data.pip.stderr ? '\n' + data.pip.stderr : '');
+      }
+      output.textContent = text.trim() || 'Done.';
+      const alreadyUpToDate = data.git && data.git.stdout && data.git.stdout.includes('Already up to date');
+      if (!alreadyUpToDate && data.git && data.git.returncode === 0) {
+        restartSection.classList.remove('hidden');
+      } else if (alreadyUpToDate) {
+        output.textContent += '\n\n✓ Already up to date.';
+      }
+    } catch (err) {
+      output.textContent = 'Error: ' + err.message;
+    } finally {
+      btn.textContent = 'Check & Update';
+      btn.disabled = false;
+    }
+  }
+
+  async function doRestart() {
+    const btn = document.getElementById('restart-btn');
+    btn.textContent = 'Restarting…';
+    btn.disabled = true;
+    try { await fetch('/dashboard/restart', {method: 'POST'}); } catch {}
+    let t = 5;
+    const iv = setInterval(() => {
+      btn.textContent = `Reloading in ${t}s…`;
+      if (--t < 0) { clearInterval(iv); window.location.reload(); }
+    }, 1000);
+  }
+
   if (window.location.hash === '#settings') showTab('settings');
 </script>
 {% endblock %}

@@ -1,3 +1,7 @@
+import asyncio
+import os
+import subprocess
+import sys
 import uuid
 
 from fastapi import APIRouter, Form, Request
@@ -10,6 +14,8 @@ from proxy import fetch_provider_models
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _require_auth(request: Request):
@@ -110,12 +116,18 @@ async def add_provider(
     base_url: str = Form(...),
     api_key: str = Form(...),
     models_raw: str = Form(""),
+    models_auto: str = Form("on"),
 ):
     redir = _require_auth(request)
     if redir:
         return redir
+    base_url = base_url.rstrip("/")
+    auto = models_auto == "on"
     models = [m.strip() for m in models_raw.replace(",", "\n").splitlines() if m.strip()]
-    provider = Provider(id=str(uuid.uuid4()), name=name, base_url=base_url.rstrip("/"), api_key=api_key, models=models)
+    if not models:
+        models = await fetch_provider_models(base_url, api_key)
+        auto = True
+    provider = Provider(id=str(uuid.uuid4()), name=name, base_url=base_url, api_key=api_key, models=models, models_auto=auto)
     config.add_provider(provider)
     return RedirectResponse(_flash("/dashboard", success=f"Provider '{name}' added."), status_code=302)
 
@@ -128,6 +140,7 @@ async def update_provider(
     base_url: str = Form(...),
     api_key: str = Form(...),
     models_raw: str = Form(""),
+    models_auto: str = Form("on"),
 ):
     redir = _require_auth(request)
     if redir:
@@ -135,8 +148,12 @@ async def update_provider(
     existing = config.get_provider(provider_id)
     if not existing:
         return RedirectResponse(_flash("/dashboard", error="Provider not found."), status_code=302)
+    base_url = base_url.rstrip("/")
+    auto = models_auto == "on"
     models = [m.strip() for m in models_raw.replace(",", "\n").splitlines() if m.strip()]
-    updated = Provider(id=provider_id, name=name, base_url=base_url.rstrip("/"), api_key=api_key, models=models, enabled=existing.enabled)
+    if not models and auto:
+        models = await fetch_provider_models(base_url, api_key)
+    updated = Provider(id=provider_id, name=name, base_url=base_url, api_key=api_key, models=models, enabled=existing.enabled, models_auto=auto)
     config.update_provider(provider_id, updated)
     return RedirectResponse(_flash("/dashboard", success=f"Provider '{name}' updated."), status_code=302)
 
@@ -210,3 +227,37 @@ async def fetch_models_ajax(request: Request):
         return JSONResponse({"error": "base_url is required"}, status_code=400)
     models = await fetch_provider_models(base_url, api_key)
     return JSONResponse({"models": models})
+
+
+@router.post("/dashboard/update")
+async def do_update(request: Request):
+    redir = _require_auth(request)
+    if redir:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    def run(cmd):
+        try:
+            result = subprocess.run(cmd, cwd=APP_DIR, capture_output=True, text=True, timeout=120)
+            return {"stdout": result.stdout.strip(), "stderr": result.stderr.strip(), "returncode": result.returncode}
+        except Exception as e:
+            return {"stdout": "", "stderr": str(e), "returncode": -1}
+
+    git_result = run(["git", "pull"])
+    pip_result = run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "-q"])
+    return JSONResponse({"git": git_result, "pip": pip_result})
+
+
+@router.post("/dashboard/restart")
+async def do_restart(request: Request):
+    redir = _require_auth(request)
+    if redir:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    async def _restart():
+        await asyncio.sleep(1.5)
+        os.chdir(APP_DIR)
+        main_py = os.path.join(APP_DIR, "main.py")
+        os.execv(sys.executable, [sys.executable, main_py])
+
+    asyncio.create_task(_restart())
+    return JSONResponse({"message": "Restarting…"})

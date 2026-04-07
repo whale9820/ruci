@@ -18,6 +18,7 @@ class Provider(BaseModel):
     api_key: str
     models: List[str] = []
     enabled: bool = True
+    models_auto: bool = True
 
 
 def _read_env() -> dict:
