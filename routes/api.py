@@ -51,7 +51,7 @@ async def list_models(request: Request):
     models = []
     seen_ids = set()
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, http2=False) as client:
         for provider in config.providers:
             if not provider.enabled:
                 continue

@@ -73,7 +73,7 @@ async def proxy_to_provider(
 
     if _is_streaming(body, content_type):
         async def generate():
-            async with httpx.AsyncClient(timeout=None) as client:
+            async with httpx.AsyncClient(timeout=None, http2=False) as client:
                 async with client.stream(
                     method=request.method,
                     url=target_url,
@@ -90,7 +90,7 @@ async def proxy_to_provider(
             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
         )
 
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=300.0, http2=False) as client:
         resp = await client.request(
             method=request.method,
             url=target_url,
@@ -110,7 +110,7 @@ async def proxy_to_provider(
 async def fetch_provider_models(base_url: str, api_key: str) -> list:
     url = f"{base_url.rstrip('/')}/models"
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, http2=False) as client:
             resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
             if resp.status_code == 200:
                 data = resp.json()
