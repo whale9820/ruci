@@ -5,7 +5,7 @@ import httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
-from config import config
+from config import config, provider_slug
 from proxy import fetch_provider_models, proxy_to_provider
 
 router = APIRouter()
@@ -58,14 +58,14 @@ async def list_models(request: Request):
 
             if provider.models:
                 for model_id in provider.models:
-                    prefixed = f"{provider.name}/{model_id}"
+                    prefixed = f"{provider_slug(provider.name)}/{model_id}"
                     if prefixed not in seen_ids:
                         seen_ids.add(prefixed)
                         models.append({
                             "id": prefixed,
                             "object": "model",
                             "created": int(time.time()),
-                            "owned_by": provider.name,
+                            "owned_by": provider_slug(provider.name),
                         })
             else:
                 try:
@@ -78,14 +78,14 @@ async def list_models(request: Request):
                             mid = m.get("id", "")
                             if not mid:
                                 continue
-                            prefixed = f"{provider.name}/{mid}"
+                            prefixed = f"{provider_slug(provider.name)}/{mid}"
                             if prefixed not in seen_ids:
                                 seen_ids.add(prefixed)
                                 models.append({
                                     "id": prefixed,
                                     "object": "model",
                                     "created": m.get("created", int(time.time())),
-                                    "owned_by": provider.name,
+                                    "owned_by": provider_slug(provider.name),
                                 })
                 except Exception:
                     pass

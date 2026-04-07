@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field
 ENV_PATH = Path(".env")
 
 
+def provider_slug(name: str) -> str:
+    """Normalize provider name for use in model IDs: lowercase, strip dots/spaces."""
+    return re.sub(r"[.\s]+", "", name).lower()
+
+
 class Provider(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -119,7 +124,7 @@ class AppConfig:
         if "/" in model:
             pname, mname = model.split("/", 1)
             for p in self.providers:
-                if p.enabled and p.name.lower() == pname.lower():
+                if p.enabled and provider_slug(p.name) == provider_slug(pname):
                     return (p, mname)
         for p in self.providers:
             if p.enabled and model in p.models:
